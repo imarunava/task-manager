@@ -277,6 +277,10 @@
               <input id="f-due" type="date" class="input" />
             </div>
           </div>
+          <div>
+            <label class="muted" style="font-size:12px">Start date</label>
+            <input id="f-start" type="date" class="input" />
+          </div>
           <div class="panel">
             <div style="font-size:12px;font-weight:600">Time</div>
             <div style="margin-top:6px">⏱ <span id="f-time">00:00:00</span></div>
@@ -284,6 +288,13 @@
               <button id="f-timer" class="btn">Start</button>
               <button id="f-reset" class="btn">Reset</button>
             </div>
+          <div style="margin-top:8px">
+            <label class="muted" style="font-size:12px">Set Time (HH:MM:SS)</label>
+            <div style="display:flex;gap:8px">
+              <input id="f-time-input" class="input" placeholder="00:00:00" />
+              <button id="f-settime" class="btn">Apply</button>
+            </div>
+          </div>
           </div>
           <div>
             <label class="muted" style="font-size:12px">Tags (comma separated)</label>
@@ -413,11 +424,13 @@
     function currentSeconds(t){ return t.trackedSeconds + (t.isRunning && t.startedAt ? (Date.now()-t.startedAt)/1000 : 0); }
 
     function upsert(task){
+      let __isNew = false;
       const i = tasks.findIndex(x=>x.id===task.id);
       if(i>=0) tasks[i] = {...task, updatedAt:new Date().toISOString()};
-      else tasks.push(task);
+      else { __isNew = true; tasks.push(task); }
       save();
       try{ upsertRemote(task); }catch(e){}
+      try{ if(__isNew && (task.status === 'done' || task.status === "Done")) (window.launchConfetti && window.launchConfetti()); }catch(e){}
     }
 
     function removeTask(id){ tasks = tasks.filter(t=>t.id!==id); save(); try{ deleteRemote(id); }catch(e){} }
@@ -545,29 +558,58 @@
 
     function clearDropClasses(){ document.querySelectorAll('.drop-before,.drop-after').forEach(el=>el.classList.remove('drop-before','drop-after')); }
 
-    function moveTask(id, targetStatus, targetIndex){
-      if(!id) return;
-      const src = tasks.find(t=>t.id===id);
-      if(!src) return;
-      const from = src.status;
-      src.status = targetStatus;
-      // compute orders within both columns using DOM order where possible
-      const colEls = document.querySelector(`.cards[data-status="${CSS.escape(targetStatus)}"]`);
-      const ids = Array.from(colEls.querySelectorAll('.task-card')).map(x=>x.dataset.id);
-      // Insert id at targetIndex in ids (if not present due to drag from another col)
-      if(!ids.includes(id)) ids.splice(targetIndex,0,id); else {
-        const old = ids.indexOf(id); ids.splice(old,1); ids.splice(targetIndex,0,id);
-      }
-      // write back orders for targetStatus
-      const targetTasks = tasks.filter(t=>t.status===targetStatus);
-      ids.forEach((tid, idx)=>{ const t = tasks.find(x=>x.id===tid); if(t) t.order = idx; });
-      // reindex source column if changed
-      if(from!==targetStatus){
-        tasks.filter(t=>t.status===from).sort((a,b)=>a.order-b.order).forEach((t,i)=> t.order=i);
-      }
-      save();
-      render();
-    }
+    
+// Persist all tasks of a given status to remote (and local via upsert)
+async function persistStatus(status){
+  const changed = tasks.filter(t => t.status === status);
+  for (const t of changed) { upsert(t); }
+}
+function moveTask(id, targetStatus, targetIndex){
+  if(!id) return;
+  const src = tasks.find(t=>t.id===id);
+  if(!src) return;
+  const from = src.status;
+
+  // Apply new status first
+  src.status = targetStatus;
+
+  // Grab DOM order for the target column
+  const colEls = document.querySelector(`.cards[data-status="${CSS.escape(targetStatus)}"]`);
+  const ids = Array.from(colEls.querySelectorAll('.task-card')).map(x=>x.dataset.id);
+
+  // Insert/move id at the desired index
+  if(!ids.includes(id)) ids.splice(targetIndex, 0, id);
+  else {
+    const old = ids.indexOf(id);
+    ids.splice(old, 1);
+    ids.splice(targetIndex, 0, id);
+  }
+
+  // Update order values for target column
+  ids.forEach((tid, idx) => {
+    const t = tasks.find(x=>x.id===tid);
+    if (t) t.order = idx;
+  });
+
+  // Reindex source column if different
+  if (from !== targetStatus) {
+    tasks
+      .filter(t => t.status === from)
+      .sort((a,b) => a.order - b.order)
+      .forEach((t,i) => t.order = i);
+  }
+
+  // Persist both columns
+  persistStatus(targetStatus);
+  if (from !== targetStatus) persistStatus(from);
+
+  // Confetti if moved into Done
+  try{ if(String(from).toLowerCase()!=='done' && String(targetStatus).toLowerCase()==='done') (window.launchConfetti && window.launchConfetti()); }catch(e){}
+
+  // Save locally and render
+  save();
+  render();
+}
 
     function renderList(){
       const rows = filtered().sort((a,b)=> String(a.dueDate||'').localeCompare(String(b.dueDate||''))).map(t=>`
@@ -670,6 +712,9 @@
     const $fTime = document.getElementById('f-time');
     const $fTimer = document.getElementById('f-timer');
     const $fReset = document.getElementById('f-reset');
+    const $fStart = document.getElementById('f-start');
+    const $fTimeInput = document.getElementById('f-time-input');
+    const $fSetTime = document.getElementById('f-settime');
 
     // fill status/priority options once
     function seedSelects(){
@@ -691,6 +736,8 @@
       $fTags.value = (t.tags||[]).join(', ');
       $fTime.textContent = fmtHMS(currentSeconds(t));
       $fTimer.textContent = t.isRunning? 'Pause':'Start';
+      if ($fStart) { $fStart.value = t.startDate || ''; }
+      if ($fTimeInput) { $fTimeInput.value = fmtHMS(currentSeconds(t)); }
       $modal.classList.add('open');
       $modal.setAttribute('aria-hidden','false');
     }
@@ -706,6 +753,7 @@
       t.status = $fStatus.value;
       t.priority = $fPriority.value;
       t.dueDate = $fDue.value || null;
+      t.startDate = ($fStart && $fStart.value) ? $fStart.value : null;
       t.tags = $fTags.value.split(',').map(s=>s.trim()).filter(Boolean);
       t.updatedAt = new Date().toISOString();
       upsert(t); closeEditor(); render();
@@ -718,7 +766,44 @@
     $fTimer.addEventListener('click',()=>{ if(state.active) toggleTimer(state.active, true); });
     $fReset.addEventListener('click',()=>{ if(!state.active) return; const t=tasks.find(x=>x.id===state.active); if(!t) return; t.isRunning=false; t.startedAt=null; t.trackedSeconds=0; upsert(t); updateEditorTime(); render(); });
 
-    function updateEditorTime(){ if(!state.active) return; const t = tasks.find(x=>x.id===state.active); if(!t) return; $fTime.textContent = fmtHMS(currentSeconds(t)); $fTimer.textContent = t.isRunning?'Pause':'Start'; }
+    
+    if ($fSetTime) {
+      $fSetTime.addEventListener('click', () => {
+        if (!state.active) return;
+        const t = tasks.find(x => x.id === state.active);
+        if (!t) return;
+        const val = ($fTimeInput && $fTimeInput.value || '').trim();
+        const m = /^(\d{1,3}):([0-5]\d):([0-5]\d)$/.exec(val);
+        if (!m) {
+          alert('Enter time in HH:MM:SS (e.g., 02:15:30)');
+          return;
+        }
+        const hh = parseInt(m[1], 10);
+        const mm = parseInt(m[2], 10);
+        const ss = parseInt(m[3], 10);
+        const total = (hh * 3600) + (mm * 60) + ss;
+        t.isRunning = false;
+        t.startedAt = null;
+        t.trackedSeconds = total;
+        upsert(t);
+        updateEditorTime();
+        render();
+      });
+      // Enter to apply
+      if ($fTimeInput) {
+        $fTimeInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            $fSetTime.click();
+          }
+        });
+      }
+    }
+function updateEditorTime(){ if(!state.active) return; const t = tasks.find(x=>x.id===state.active); if(!t) return; $fTime.textContent = fmtHMS(currentSeconds(t)); $fTimer.textContent = t.isRunning?'Pause':'Start'; }
+    if ($fTimeInput && state.active) {
+      const tt = tasks.find(x => x.id === state.active);
+      if (tt) $fTimeInput.value = fmtHMS(currentSeconds(tt));
+    }
 
     // ----------------- Actions -----------------
     function toggleTimer(id, fromEditor=false){
@@ -746,6 +831,13 @@
 
     const $search = document.getElementById('search');
     document.addEventListener('keydown',(e)=>{
+  // Guard: ignore shortcuts while typing in inputs/textareas/contenteditable
+  try {
+    const t = event.target || (typeof e!=='undefined'?e.target:null);
+    const tag = (t && t.tagName) ? t.tagName.toUpperCase() : '';
+    if (t && (tag==='INPUT' || tag==='TEXTAREA' || t.isContentEditable)) { return; }
+  } catch(err) {}
+
       if(e.key==='/' && document.activeElement!==$search){ e.preventDefault(); $search.focus(); }
       if(e.key.toLowerCase()==='n' && document.activeElement!==$search){ e.preventDefault(); document.getElementById('newBtn').click(); }
     });
@@ -824,5 +916,105 @@
     // initial render
     init();
   </script>
+
+<script>
+// Lightweight fullscreen confetti
+function launchConfetti(durationMs = 2200, particleCount = 220){
+  if (window.__confettiRunning) return;
+  window.__confettiRunning = true;
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'confetti-canvas';
+  canvas.style.position = 'fixed';
+  canvas.style.inset = '0';
+  canvas.style.width = '100vw';
+  canvas.style.height = '100vh';
+  canvas.style.pointerEvents = 'none';
+  canvas.style.zIndex = '9999';
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+
+  // Resize to device pixels for crispness
+  function fitCanvas(){
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(canvas.clientWidth * dpr);
+    canvas.height = Math.floor(canvas.clientHeight * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  fitCanvas();
+  window.addEventListener('resize', fitCanvas);
+
+  const TAU = Math.PI * 2;
+  const colors = [
+    '#16a34a','#22c55e','#84cc16','#f59e0b','#eab308',
+    '#f97316','#ef4444','#3b82f6','#06b6d4','#a855f7'
+  ];
+  const particles = [];
+  const originX = window.innerWidth / 2;
+  const originY = window.innerHeight * 0.25;
+
+  for (let i = 0; i < particleCount; i++){
+    const angle = Math.random() * TAU;
+    const speed = 6 + Math.random() * 8;
+    particles.push({
+      x: originX,
+      y: originY,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 6,
+      size: 6 + Math.random() * 6,
+      rot: Math.random() * TAU,
+      vr: (Math.random() - 0.5) * 0.3,
+      color: colors[i % colors.length],
+      life: 1.0
+    });
+  }
+
+  const gravity = 0.25;
+  const drag = 0.995;
+  const fade = 0.006; // per frame
+
+  let rafId;
+  const start = performance.now();
+  function tick(now){
+    const elapsed = now - start;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    particles.forEach(p => {
+      p.vx *= drag;
+      p.vy = p.vy * drag + gravity;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rot += p.vr;
+      if (elapsed > durationMs * 0.35) p.life -= fade; // begin fading later
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.globalAlpha = Math.max(p.life, 0);
+      ctx.fillStyle = p.color;
+      // Draw as rectangle "confetti"
+      ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size * 0.6);
+      ctx.restore();
+    });
+
+    // Drop dead particles
+    for (let i = particles.length - 1; i >= 0; i--){
+      const p = particles[i];
+      if (p.life <= 0 || p.y > window.innerHeight + 40){
+        particles.splice(i, 1);
+      }
+    }
+
+    if (elapsed < durationMs && particles.length > 0){
+      rafId = requestAnimationFrame(tick);
+    } else {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', fitCanvas);
+      canvas.remove();
+      window.__confettiRunning = false;
+    }
+  }
+  rafId = requestAnimationFrame(tick);
+}
+</script>
 </body>
 </html>
