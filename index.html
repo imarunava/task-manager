@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Task Manager — Notion‑style (HTML/CSS/JS)</title>
+  <style>
+    :root{
+      --bg:#fafafa; --panel:#ffffff; --text:#111827; --muted:#6b7280; --border:#e5e7eb;
+      --chip:#f3f4f6; --ring:#d1d5db; --accent:#111827; --rose:#fef2f2; --rose-border:#fecaca; --rose-text:#b91c1c;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,"Noto Sans","Apple Color Emoji","Segoe UI Emoji";background:var(--bg);color:var(--text)}
+    .container{max-width:1100px;margin:0 auto;padding:16px}
+    .topbar{display:flex;gap:8px;align-items:center;margin-bottom:16px}
+    .topbar .logo{width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--border);border-radius:8px;background:#fff}
+    .spacer{flex:1}
+    .btn{border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 12px;font-size:14px;color:#374151;cursor:pointer}
+    .btn:hover{background:#f9fafb}
+    .btn.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .btn.primary:hover {
+      background: #374151;
+    }
+    
+    .chip{display:inline-block;border:1px solid var(--border);background:var(--chip);border-radius:8px;padding:2px 8px;font-size:12px;color:#374151}
+    .seg{display:inline-flex;background:#f3f4f6;border:1px solid var(--border);border-radius:12px;padding:2px;margin-bottom:16px}
+    .seg button{border:0;background:transparent;border-radius:10px;padding:6px 10px;font-size:14px;color:#374151;cursor:pointer}
+    .seg button.active{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+    .input{border:1px solid var(--border);border-radius:10px;padding:8px 12px;background:#fff;font-size:14px;outline:none}
+    .input:focus{box-shadow:0 0 0 2px var(--ring)}
+
+    /* Panels */
+    .panel{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:12px}
+
+    /* Kanban */
+    .kanban{display:grid;grid-template-columns:repeat(1,minmax(0,1fr));gap:16px}
+    @media (min-width:768px){.kanban{grid-template-columns:repeat(2,1fr)}}
+    @media (min-width:1024px){.kanban{grid-template-columns:repeat(4,1fr)}}
+    .col{border:1px solid var(--border);border-radius:16px;background:#fff;padding:12px}
+    .col-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .col-title{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#6b7280;font-weight:600}
+    .col-count{font-size:12px;color:#9ca3af}
+    .cards{display:flex;flex-direction:column;gap:8px;min-height:120px}
+
+    .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);cursor:pointer}
+    .card.dragging{opacity:.8;outline:2px solid #c7cdd3}
+    .card-title{font-size:.95rem;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .card-desc{margin-top:4px;font-size:13px;color:#4b5563;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+    .card-meta{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;font-size:11px;color:#6b7280}
+    .row{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+    .btn-ghost{border:1px solid var(--border);background:#f3f4f6;color:#111827}
+
+    .drop-before{box-shadow:inset 0 2px 0 0 #c7cdd3}
+    .drop-after{box-shadow:inset 0 -2px 0 0 #c7cdd3}
+    .cards.dragover{outline:2px dashed var(--ring);outline-offset:2px}
+
+    /* List */
+    table{width:100%;border-collapse:collapse}
+    thead{background:#f3f4f6;color:#6b7280}
+    th,td{padding:12px}
+    tbody tr{border-top:1px solid var(--border)}
+
+    /* Calendar */
+    .calendar{background:#fff;border:1px solid var(--border);border-radius:16px;padding:12px}
+    .cal-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+    .cal-dayname{font-size:12px;text-align:center;color:#6b7280;font-weight:600}
+    .cal-cell{min-height:110px;border:1px solid var(--border);border-radius:12px;padding:8px;background:#fff}
+    .cal-cell.dim{background:#f9fafb;border-color:transparent}
+    .cal-cell.today{outline:2px solid #d1d5db}
+    .cal-date{display:flex;justify-content:space-between;font-size:12px;color:#6b7280;margin-bottom:4px}
+    .cal-task{display:block;background:#f3f4f6;border-radius:8px;padding:4px 8px;font-size:12px;color:#111827;text-align:left;border:0}
+
+    
+    /* Sidebar (replaces centered modal) */
+    .modal{position:fixed;inset:0;display:none;z-index:1000}
+    .modal.open{display:block}
+    .backdrop{position:absolute;inset:0;background:rgba(0,0,0,.2);cursor:pointer}
+    .dialog{
+      position:fixed;top:0;right:0;bottom:0;
+      width:min(520px, 96vw);
+      background:#fff;border-left:1px solid var(--border);
+      box-shadow:-10px 0 30px rgba(0,0,0,.08);
+      padding:16px;overflow:auto;border-top-left-radius:16px;border-bottom-left-radius:16px;
+    }
+    .dialog-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .muted{color:var(--muted)}
+    .danger{background:var(--rose);color:var(--rose-text);border-color:var(--rose-border)}
+
+  
+    .wave {
+      display: inline-block;
+      animation: wave-animation 2s infinite;
+      transform-origin: 70% 70%;
+      font-size: 18px;
+    }
+    @keyframes wave-animation {
+      0% { transform: rotate(0deg); }
+      10% { transform: rotate(14deg); }
+      20% { transform: rotate(-8deg); }
+      30% { transform: rotate(14deg); }
+      40% { transform: rotate(-4deg); }
+      50% { transform: rotate(10deg); }
+      60% { transform: rotate(0deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+
+    body.modal-open { overflow: hidden; }
+    /* Prevent background layout jitter when scrollbar disappears */
+    .container { contain: layout paint; }
+    
+    /* Topbar/greeting robustness */
+    .topbar { align-items:flex-start; }
+    .topbar .logo { flex:0 0 auto; }
+    #greeting { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: 50vw; }
+    .greeting-wrap { min-width:0; }
+    #quote { max-width: 56ch; }
+    @media (max-width: 700px){
+      #quote { display:none; }
+    }
+    
+    /* Ensure sidebar sits above everything */
+    .dialog { z-index: 1001; }
+    .backdrop { z-index: 1000; }
+    
+  
+    /* ---- Sidebar Editor Polish ---- */
+    .dialog { padding: 24px; }
+    .dialog-head { margin-bottom: 16px; }
+    .dialog-body { padding-right: 4px; }
+
+    .dialog-body label {
+      display:block;
+      margin-bottom:6px;
+      font-size:12px;
+      font-weight:600;
+      color: var(--muted);
+    }
+
+    /* Inputs: consistent sizing & look */
+    .dialog .input,
+    .dialog select.input,
+    .dialog textarea.input {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      font-size: 14px;
+      border-radius: 12px;
+      padding: 10px 12px;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+    }
+    .dialog .input:focus,
+    .dialog select.input:focus,
+    .dialog textarea.input:focus {
+      box-shadow: 0 0 0 2px var(--ring);
+    }
+    .dialog textarea.input {
+      min-height: 120px;
+      line-height: 1.4;
+    }
+    .dialog select.input,
+    .dialog input[type="date"].input {
+      height: 40px;
+      line-height: 40px;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    /* Three-field row alignment (Status, Priority, Due) */
+    .dialog .dialog-body .grid-3 {
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 12px;
+      align-items: start;
+    }
+    @media (max-width: 820px){
+      .dialog .dialog-body .grid-3 { grid-template-columns: 1fr; }
+    }
+
+    /* Replace the inline grid with a class (via CSS only) */
+    .dialog .dialog-body > div > div:nth-of-type(3) {
+      /* This targets the 3-column wrapper in current DOM */
+    }
+
+    /* Time panel look */
+    .dialog .panel {
+      border-radius: 16px;
+      border-color: var(--border);
+      background: #fff;
+    }
+    .dialog .panel > div:first-child {
+      color: #111827;
+    }
+
+    /* Footer buttons spacing */
+    .dialog + div button.btn {
+      height:40px;
+      border-radius: 12px;
+      padding: 0 16px;
+    }
+
+    /* Make the right drawer feel like native app sidebar */
+    .dialog {
+      border-top-left-radius: 16px;
+      border-bottom-left-radius: 16px;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="logo"><span class="wave">👋</span></div>
+      <div class="greeting-wrap" style="display:flex;flex-direction:column;gap:2px;">
+        <div id="greeting" style="font-weight:600"></div>
+        <div id="quote" class="muted" style="font-size:12px"></div>
+      </div>
+      <div class="spacer"></div>
+      <input id="search" class="input" placeholder="Search  ( / )" />
+      <button id="exportBtn" class="btn">Export</button>
+      <label class="btn" style="cursor:pointer">Import <input id="importInput" type="file" accept="application/json" hidden></label>
+      <button id="newBtn" class="btn primary">+ New Task</button>
+    </div>
+
+    <!-- View switcher -->
+    <div class="seg">
+      <button data-view="kanban" class="active">Kanban</button>
+      <button data-view="list">List</button>
+      <button data-view="calendar">Calendar</button>
+    </div>
+
+    <!-- Content -->
+    <div id="content"></div>
+
+    <div class="muted" style="text-align:center;margin-top:16px;font-size:12px">Minimal Notion‑style UI. Stored in your browser. Starting a timer auto‑pauses others.</div>
+  </div>
+
+  <!-- Modal Editor -->
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="backdrop" data-close></div>
+    <div class="dialog">
+      <div class="dialog-head">
+        <div style="font-weight:600">Edit task</div>
+        <button class="btn" data-close>Close</button>
+      </div>
+      <div class="dialog-body">
+        <div style="display:grid;gap:12px;grid-template-columns:1fr;max-height:72vh;overflow:auto">
+          <div>
+            <label class="muted" style="font-size:12px">Title</label>
+            <input id="f-title" class="input" />
+          </div>
+          <div>
+            <label class="muted" style="font-size:12px">Description</label>
+            <textarea id="f-desc" class="input" rows="6" style="resize:vertical"></textarea>
+          </div>
+          <div class="grid-3">
+            <div>
+              <label class="muted" style="font-size:12px">Status</label>
+              <select id="f-status" class="input"></select>
+            </div>
+            <div>
+              <label class="muted" style="font-size:12px">Priority</label>
+              <select id="f-priority" class="input"></select>
+            </div>
+            <div>
+              <label class="muted" style="font-size:12px">Due date</label>
+              <input id="f-due" type="date" class="input" />
+            </div>
+          </div>
+          <div class="panel">
+            <div style="font-size:12px;font-weight:600">Time</div>
+            <div style="margin-top:6px">⏱ <span id="f-time">00:00:00</span></div>
+            <div style="margin-top:8px;display:flex;gap:8px">
+              <button id="f-timer" class="btn">Start</button>
+              <button id="f-reset" class="btn">Reset</button>
+            </div>
+          </div>
+          <div>
+            <label class="muted" style="font-size:12px">Tags (comma separated)</label>
+            <input id="f-tags" class="input" placeholder="design, api" />
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+        <button class="btn" data-close>Cancel</button>
+        <button id="deleteBtn" class="btn danger">Delete</button>
+        <button id="saveBtn" class="btn" style="background:#111827;color:#fff;border-color:#111827">Save</button>
+      </div>
+    </div>
+  </div>
+
+  
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      // ==================== Supabase Backend ====================
+      // 1) Create a free project at https://supabase.com
+      // 2) In your project, copy:
+      //    - Project URL  -> paste into SUPABASE_URL
+      //    - anon public key -> paste into SUPABASE_ANON_KEY
+      // 3) In SQL Editor, run the create table + policy SQL I provided in chat.
+      // 4) Reload this page.
+
+      const SUPABASE_URL = "https://rywrdjquypanrlmuzdpx.supabase.co";
+      const SUPABASE_ANON_KEY = "sb_publishable_cosKXS2XWKSeTXMGNOKm8w_AZVYYUH-";
+      const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      async function loadTasksRemote(){
+        const { data, error } = await sb.from('tasks')
+          .select('*')
+          .order('order_idx', { ascending: true });
+        if (error) { console.warn('Supabase load error:', error); return []; }
+        return (data || []).map(t => ({
+          id: t.id,
+          title: t.title || 'Untitled task',
+          description: t.description || '',
+          status: t.status || 'Backlog',
+          order: t.order_idx || 0,
+          startDate: t.start_date || null,
+          dueDate: t.due_date || null,
+          priority: t.priority || 'Medium',
+          tags: Array.isArray(t.tags) ? t.tags : (t.tags ? String(t.tags).split(',').map(s=>s.trim()).filter(Boolean) : []),
+          createdAt: t.created_at || new Date().toISOString(),
+          updatedAt: t.updated_at || new Date().toISOString(),
+          trackedSeconds: t.tracked_seconds || 0,
+          isRunning: !!t.is_running,
+          startedAt: t.started_at || null,
+        }));
+      }
+
+      async function upsertRemote(task){
+        const row = {
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          status: task.status,
+          order_idx: task.order,
+          start_date: task.startDate || null,
+          due_date: task.dueDate || null,
+          priority: task.priority,
+          tags: task.tags || [],
+          tracked_seconds: task.trackedSeconds || 0,
+          is_running: !!task.isRunning,
+          started_at: task.startedAt || null,
+          created_at: task.createdAt || new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        const { error } = await sb.from('tasks').upsert(row);
+        if (error) console.warn('Supabase upsert error:', error);
+      }
+
+      async function deleteRemote(id){
+        const { error } = await sb.from('tasks').delete().eq('id', id);
+        if (error) console.warn('Supabase delete error:', error);
+      }
+    </script>
+
+<script>
+    // ----------------- Data & Utilities -----------------
+    const STORAGE_KEY = 'taskmgr-html-notion-v1';
+    const STATUSES = ['Backlog','In Progress','Review','Done'];
+    const PRIORITIES = ['Low','Medium','High','Critical'];
+
+    let tasks = [];
+
+    async function init(){
+      try {
+        const remote = await loadTasksRemote();
+        tasks = remote;
+        if (tasks.length === 0) {
+          seedDemo();
+          tasks = loadTasks();
+          for (const t of tasks) { try { await upsertRemote(t); } catch(e){} }
+        }
+      } catch (e) {
+        console.warn('Init failed, using local only:', e);
+        tasks = loadTasks();
+        if (tasks.length === 0) seedDemo();
+      }
+      render();
+    }
+
+    let state = { view:'kanban', query:'', active:null, draggedId:null };
+
+    function uid(){ return 't_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); }
+    function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
+    function loadTasks(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }catch{ return []; } }
+
+    function seedDemo(){
+      const today = new Date();
+      const d = (n)=>{ const t=new Date(); t.setDate(today.getDate()+n); return t.toISOString().slice(0,10); };
+      tasks = [
+        {id:uid(), title:'Design onboarding wireframes', description:'Initial flows and low-fi screens', status:'In Progress', order:0, dueDate:d(2), priority:'High', tags:['design'], createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), trackedSeconds:0, isRunning:false, startedAt:null},
+        {id:uid(), title:'Write API spec for tasks', description:'Endpoints and models', status:'Backlog', order:0, dueDate:d(5), priority:'Medium', tags:['backend'], createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), trackedSeconds:0, isRunning:false, startedAt:null},
+        {id:uid(), title:'Ship Kanban DnD MVP', description:'Drag & drop and ordering', status:'Review', order:0, dueDate:d(1), priority:'Critical', tags:['frontend'], createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), trackedSeconds:0, isRunning:false, startedAt:null},
+        {id:uid(), title:'Record launch video', description:'Short demo reel', status:'Done', order:0, dueDate:d(-1), priority:'Low', tags:['marketing'], createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), trackedSeconds:0, isRunning:false, startedAt:null},
+      ];
+      save();
+    }
+
+    function fmtHMS(sec){ sec=Math.max(0,Math.floor(sec)); const hh=(''+Math.floor(sec/3600)).padStart(2,'0'); const mm=(''+Math.floor((sec%3600)/60)).padStart(2,'0'); const ss=(''+(sec%60)).padStart(2,'0'); return `${hh}:${mm}:${ss}`; }
+
+    function currentSeconds(t){ return t.trackedSeconds + (t.isRunning && t.startedAt ? (Date.now()-t.startedAt)/1000 : 0); }
+
+    function upsert(task){
+      const i = tasks.findIndex(x=>x.id===task.id);
+      if(i>=0) tasks[i] = {...task, updatedAt:new Date().toISOString()};
+      else tasks.push(task);
+      save();
+      try{ upsertRemote(task); }catch(e){}
+    }
+
+    function removeTask(id){ tasks = tasks.filter(t=>t.id!==id); save(); try{ deleteRemote(id); }catch(e){} }
+
+    function pauseAllExcept(id){
+      const now = Date.now();
+      tasks = tasks.map(t=>{
+        if(t.isRunning && t.id!==id){
+          const elapsed = t.startedAt? (now-t.startedAt)/1000 : 0;
+          return {...t, isRunning:false, startedAt:null, trackedSeconds:Math.max(0,(t.trackedSeconds||0)+elapsed)};
+        }
+        return t;
+      });
+    }
+
+    // ----------------- Rendering -----------------
+    const $content = document.getElementById('content');
+
+    function render(){
+      if(state.view==='kanban') renderKanban();
+      else if(state.view==='list') renderList();
+      else renderCalendar();
+    }
+
+    function filtered(){
+      const q = state.query.trim().toLowerCase();
+      if(!q) return tasks.slice();
+      return tasks.filter(t=>[t.title,t.description,t.status,t.priority,...(t.tags||[])].some(v=>String(v||'').toLowerCase().includes(q)));
+    }
+
+    function byStatus(list){
+      const map = Object.fromEntries(STATUSES.map(s=>[s,[]]));
+      list.forEach(t=> map[t.status]?.push(t));
+      for(const s of STATUSES){ map[s].sort((a,b)=> a.order-b.order || String(a.dueDate||'').localeCompare(String(b.dueDate||''))); }
+      return map;
+    }
+
+    function renderKanban(){
+      const groups = byStatus(filtered());
+      $content.innerHTML = `<div class="kanban">${STATUSES.map(s=>`
+        <div class="col">
+          <div class="col-head"><div class="col-title">${s}</div><div class="col-count">${groups[s].length}</div></div>
+          <div class="cards" data-status="${s}"></div>
+          <button class="btn btn-ghost" data-add="${s}" style="width:100%;margin-top:8px">+ Add task</button>
+        </div>`).join('')}</div>`;
+
+      // paint cards
+      const byId = Object.fromEntries(tasks.map(t=>[t.id,t]));
+      document.querySelectorAll('.cards').forEach(col=>{
+        const status = col.dataset.status;
+        (groups[status]||[]).forEach(t=> col.appendChild(makeCard(t)));
+
+        // column-level DnD
+        col.addEventListener('dragover', e=>{ e.preventDefault(); col.classList.add('dragover'); });
+        col.addEventListener('dragleave', ()=> col.classList.remove('dragover'));
+        col.addEventListener('drop', e=>{
+          e.preventDefault(); col.classList.remove('dragover');
+          if(!state.draggedId) return;
+          moveTask(state.draggedId, status, col.children.length); // append
+        });
+      });
+
+      // add buttons
+      document.querySelectorAll('[data-add]').forEach(btn=> btn.addEventListener('click',()=>{
+        const status = btn.getAttribute('data-add');
+        const t = {id:uid(), title:'Untitled task', description:'', status, order: (tasks.filter(x=>x.status===status).length), dueDate:null, priority:'Medium', tags:[], createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), trackedSeconds:0, isRunning:false, startedAt:null};
+        upsert(t); openEditor(t.id);
+      }));
+    }
+
+    function makeCard(t){
+      const card = document.createElement('div');
+      card.className = 'card task-card';
+      card.draggable = true;
+      card.dataset.id = t.id;
+      card.innerHTML = `
+        <div style="display:flex;gap:8px;justify-content:space-between;align-items:flex-start">
+          <div style="min-width:0">
+            <div class="card-title" title="${esc(t.title)}">${esc(t.title)}</div>
+            ${t.description?`<div class="card-desc">${esc(t.description)}</div>`:''}
+          </div>
+          
+        </div>
+        <div class="card-meta">
+          <span class="chip">${t.priority}</span>
+          ${t.dueDate?`<span class="chip" style="${(new Date(t.dueDate)<new Date(new Date().toDateString()))?'background:var(--rose);border-color:var(--rose-border);color:var(--rose-text)':''}">📅 ${t.dueDate}</span>`:''}
+          ${(t.tags||[]).slice(0,3).map(x=>`<span class="chip">#${esc(x)}</span>`).join('')}
+        </div>
+        <div class="row">
+          <div class="muted">⏱ ${fmtHMS(currentSeconds(t))}</div>
+          <div>
+            <button class="btn" data-timer>${t.isRunning?'Pause':'Start'}</button>
+          </div>
+        </div>`;
+
+            card.querySelector('[data-timer]').addEventListener('click',()=> toggleTimer(t.id));
+
+      // Open editor when clicking anywhere on the card except interactive buttons
+      card.addEventListener('click', (e)=>{
+        const isButton = e.target.closest('button, [data-timer], .chip, a, input, select, textarea');
+        if(isButton) return;
+        openEditor(t.id);
+      });
+
+      // DnD behavior
+      card.addEventListener('dragstart',()=>{ state.draggedId=t.id; card.classList.add('dragging'); });
+      card.addEventListener('dragend',()=>{ state.draggedId=null; card.classList.remove('dragging'); clearDropClasses(); });
+      card.addEventListener('dragover', e=>{
+        e.preventDefault();
+        const before = e.clientY < (card.getBoundingClientRect().top + card.offsetHeight/2);
+        card.classList.toggle('drop-before', before);
+        card.classList.toggle('drop-after', !before);
+      });
+      card.addEventListener('dragleave', ()=>{ card.classList.remove('drop-before','drop-after'); });
+      card.addEventListener('drop', e=>{
+        e.preventDefault();
+        const before = e.clientY < (card.getBoundingClientRect().top + card.offsetHeight/2);
+        const status = card.closest('.cards').dataset.status;
+        const siblings = Array.from(card.parentElement.querySelectorAll('.task-card'));
+        const targetIndex = siblings.indexOf(card) + (before?0:1);
+        moveTask(state.draggedId, status, targetIndex);
+      });
+      return card;
+    }
+
+    function clearDropClasses(){ document.querySelectorAll('.drop-before,.drop-after').forEach(el=>el.classList.remove('drop-before','drop-after')); }
+
+    function moveTask(id, targetStatus, targetIndex){
+      if(!id) return;
+      const src = tasks.find(t=>t.id===id);
+      if(!src) return;
+      const from = src.status;
+      src.status = targetStatus;
+      // compute orders within both columns using DOM order where possible
+      const colEls = document.querySelector(`.cards[data-status="${CSS.escape(targetStatus)}"]`);
+      const ids = Array.from(colEls.querySelectorAll('.task-card')).map(x=>x.dataset.id);
+      // Insert id at targetIndex in ids (if not present due to drag from another col)
+      if(!ids.includes(id)) ids.splice(targetIndex,0,id); else {
+        const old = ids.indexOf(id); ids.splice(old,1); ids.splice(targetIndex,0,id);
+      }
+      // write back orders for targetStatus
+      const targetTasks = tasks.filter(t=>t.status===targetStatus);
+      ids.forEach((tid, idx)=>{ const t = tasks.find(x=>x.id===tid); if(t) t.order = idx; });
+      // reindex source column if changed
+      if(from!==targetStatus){
+        tasks.filter(t=>t.status===from).sort((a,b)=>a.order-b.order).forEach((t,i)=> t.order=i);
+      }
+      save();
+      render();
+    }
+
+    function renderList(){
+      const rows = filtered().sort((a,b)=> String(a.dueDate||'').localeCompare(String(b.dueDate||''))).map(t=>`
+        <tr>
+          <td data-open="${t.id}" style="cursor:pointer">
+            <div style="font-weight:600;text-decoration:none">${esc(t.title)}</div>
+            ${t.description?`<div class="muted" style="font-size:12px">${esc(t.description)}</div>`:''}
+          </td>
+          <td><span class="chip">${t.status}</span></td>
+          <td><span class="chip">${t.priority}</span></td>
+          <td>${t.dueDate||'—'}</td>
+          <td>${fmtHMS(currentSeconds(t))}</td>
+          <td style="text-align:right">
+            <button class="btn" data-act="timer" data-id="${t.id}">${t.isRunning?'Pause':'Start'}</button>
+            <button class="btn danger" data-act="del" data-id="${t.id}">Delete</button>
+          </td>
+        </tr>`).join('');
+
+      $content.innerHTML = `<div class="panel"><table><thead><tr>
+        <th>Task</th><th>Status</th><th>Priority</th><th>Due</th><th>Time</th><th></th>
+      </tr></thead><tbody>${rows}</tbody></table></div>`;
+
+      $content.querySelectorAll('[data-act]').forEach(btn=>{
+        const id = btn.getAttribute('data-id');
+        const act = btn.getAttribute('data-act');
+        btn.addEventListener('click',()=>{
+          if(act==='timer') toggleTimer(id);
+          if(act==='edit') openEditor(id);
+          if(act==='del'){ removeTask(id); render(); }
+        });
+      });
+    }
+
+    function renderCalendar(){
+      const date = calendarDate;
+      const title = date.toLocaleString(undefined,{month:'long', year:'numeric'});
+      const weeks = getMonthMatrix(date);
+      $content.innerHTML = `<div class="calendar">
+        <div class="cal-top">
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn" id="calPrev">← Prev</button>
+            <div style="font-weight:600">${title}</div>
+            <button class="btn" id="calNext">Next →</button>
+          </div>
+          <button class="btn" id="calToday">Today</button>
+        </div>
+        <div class="cal-grid">
+          ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="cal-dayname">${d}</div>`).join('')}
+          ${weeks.map(week=> week.map(({date,inMonth})=>{
+            const iso = date.toISOString().slice(0,10);
+            const dayTasks = tasks.filter(t=>t.dueDate===iso);
+            const todayIso = new Date().toISOString().slice(0,10);
+            return `<div class="cal-cell ${inMonth?'':'dim'} ${iso===todayIso?'today':''}" data-iso="${iso}">
+              <div class="cal-date"><span>${date.getDate()}</span><button class="btn" data-add="${iso}" style="padding:2px 6px;font-size:11px">Add</button></div>
+              <div class="cal-list">${dayTasks.slice(0,3).map(t=>`<button class="cal-task" data-open="${t.id}" title="${esc(t.title)}">• ${esc(t.title)}</button>`).join('')}
+                ${dayTasks.length>3?`<div class="muted" style="text-align:center;font-size:11px">+${dayTasks.length-3} more…</div>`:''}
+              </div>
+            </div>`;
+          }).join('')).join('')}
+        </div>
+      </div>`;
+
+      document.getElementById('calPrev').onclick = ()=>{ calendarDate = new Date(date.getFullYear(), date.getMonth()-1, 1); renderCalendar(); };
+      document.getElementById('calNext').onclick = ()=>{ calendarDate = new Date(date.getFullYear(), date.getMonth()+1, 1); renderCalendar(); };
+      document.getElementById('calToday').onclick = ()=>{ calendarDate = new Date(); renderCalendar(); };
+
+      $content.querySelectorAll('[data-add]').forEach(btn=> btn.addEventListener('click',()=>{
+        const due = btn.getAttribute('data-add');
+        const t = {id:uid(), title:'Untitled task', description:'', status:'Backlog', order: (tasks.filter(x=>x.status==='Backlog').length), startDate:new Date().toISOString().slice(0,10), dueDate:due, priority:'Medium', tags:[], createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), trackedSeconds:0, isRunning:false, startedAt:null};
+        upsert(t); openEditor(t.id);
+      }));
+      $content.querySelectorAll('[data-open]').forEach(b=> b.addEventListener('click',()=> openEditor(b.getAttribute('data-open'))));
+    }
+
+    // Month matrix Monday-first
+    function getMonthMatrix(date){
+      const y = date.getFullYear(); const m = date.getMonth();
+      const first = new Date(y,m,1);
+      const startDay = (first.getDay()+6)%7; // Monday=0
+      const weeks=[]; let d=1-startDay;
+      for(let w=0; w<6; w++){
+        const week=[];
+        for(let i=0;i<7;i++){
+          const dt = new Date(y,m,d);
+          week.push({date:dt, inMonth: dt.getMonth()===m}); d++;
+        }
+        weeks.push(week);
+      }
+      return weeks;
+    }
+
+    // ----------------- Editor -----------------
+    const $modal = document.getElementById('modal');
+    const $fTitle = document.getElementById('f-title');
+    const $fDesc = document.getElementById('f-desc');
+    const $fStatus = document.getElementById('f-status');
+    const $fPriority = document.getElementById('f-priority');
+    const $fDue = document.getElementById('f-due');
+    const $fTags = document.getElementById('f-tags');
+    const $fTime = document.getElementById('f-time');
+    const $fTimer = document.getElementById('f-timer');
+    const $fReset = document.getElementById('f-reset');
+
+    // fill status/priority options once
+    function seedSelects(){
+      $fStatus.innerHTML = STATUSES.map(s=>`<option>${s}</option>`).join('');
+      $fPriority.innerHTML = PRIORITIES.map(s=>`<option>${s}</option>`).join('');
+    }
+    seedSelects();
+
+    function openEditor(id){
+      document.body.classList.add('modal-open');
+      state.active = id;
+      const t = tasks.find(x=>x.id===id);
+      if(!t) return;
+      $fTitle.value = t.title || '';
+      $fDesc.value = t.description || '';
+      $fStatus.value = t.status;
+      $fPriority.value = t.priority;
+      $fDue.value = t.dueDate || '';
+      $fTags.value = (t.tags||[]).join(', ');
+      $fTime.textContent = fmtHMS(currentSeconds(t));
+      $fTimer.textContent = t.isRunning? 'Pause':'Start';
+      $modal.classList.add('open');
+      $modal.setAttribute('aria-hidden','false');
+    }
+
+    function closeEditor(){ $modal.classList.remove('open'); $modal.setAttribute('aria-hidden','true'); state.active=null; document.body.classList.remove('modal-open'); }
+
+    document.querySelectorAll('[data-close]').forEach(b=> b.addEventListener('click', closeEditor));
+
+    document.getElementById('saveBtn').addEventListener('click',()=>{
+      const id = state.active; const t = tasks.find(x=>x.id===id); if(!t) return;
+      t.title = $fTitle.value.trim()||'Untitled task';
+      t.description = $fDesc.value;
+      t.status = $fStatus.value;
+      t.priority = $fPriority.value;
+      t.dueDate = $fDue.value || null;
+      t.tags = $fTags.value.split(',').map(s=>s.trim()).filter(Boolean);
+      t.updatedAt = new Date().toISOString();
+      upsert(t); closeEditor(); render();
+    });
+
+    document.getElementById('deleteBtn').addEventListener('click',()=>{
+      const id = state.active; if(!id) return; removeTask(id); closeEditor(); render();
+    });
+
+    $fTimer.addEventListener('click',()=>{ if(state.active) toggleTimer(state.active, true); });
+    $fReset.addEventListener('click',()=>{ if(!state.active) return; const t=tasks.find(x=>x.id===state.active); if(!t) return; t.isRunning=false; t.startedAt=null; t.trackedSeconds=0; upsert(t); updateEditorTime(); render(); });
+
+    function updateEditorTime(){ if(!state.active) return; const t = tasks.find(x=>x.id===state.active); if(!t) return; $fTime.textContent = fmtHMS(currentSeconds(t)); $fTimer.textContent = t.isRunning?'Pause':'Start'; }
+
+    // ----------------- Actions -----------------
+    function toggleTimer(id, fromEditor=false){
+      const now = Date.now();
+      const t = tasks.find(x=>x.id===id); if(!t) return;
+      if(t.isRunning){
+        const elapsed = t.startedAt? (now-t.startedAt)/1000 : 0;
+        t.trackedSeconds = Math.max(0,(t.trackedSeconds||0)+elapsed);
+        t.startedAt = null; t.isRunning = false;
+      }else{
+        pauseAllExcept(id);
+        t.startedAt = now; t.isRunning = true;
+      }
+      upsert(t); render(); if(fromEditor) updateEditorTime();
+    }
+
+    // ----------------- Calendar date state -----------------
+    let calendarDate = new Date();
+
+    // ----------------- Topbar wiring -----------------
+    document.getElementById('newBtn').addEventListener('click',()=>{
+      const t = {id:uid(), title:'Untitled task', description:'', status:'Backlog', order: (tasks.filter(x=>x.status==='Backlog').length), startDate:new Date().toISOString().slice(0,10), dueDate:null, priority:'Medium', tags:[], createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), trackedSeconds:0, isRunning:false, startedAt:null};
+      upsert(t); openEditor(t.id);
+    });
+
+    const $search = document.getElementById('search');
+    document.addEventListener('keydown',(e)=>{
+      if(e.key==='/' && document.activeElement!==$search){ e.preventDefault(); $search.focus(); }
+      if(e.key.toLowerCase()==='n' && document.activeElement!==$search){ e.preventDefault(); document.getElementById('newBtn').click(); }
+    });
+    $search.addEventListener('input',()=>{ state.query=$search.value; render(); });
+
+    document.querySelectorAll('.seg button').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        document.querySelectorAll('.seg button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        state.view = btn.getAttribute('data-view');
+        render();
+      });
+    });
+
+    document.getElementById('exportBtn').addEventListener('click',()=>{
+      const blob = new Blob([JSON.stringify(tasks,null,2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download = 'tasks-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('importInput').addEventListener('change',(e)=>{
+      const file = e.target.files && e.target.files[0]; if(!file) return;
+      const reader = new FileReader();
+      reader.onload = ev=>{
+        try{ const data = JSON.parse(String(ev.target.result||'[]')); if(Array.isArray(data)){ tasks = data; save(); render(); } }
+        catch(err){ alert('Invalid JSON'); }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+
+    // ----------------- Timer tick -----------------
+    setInterval(()=>{
+      // Only rerender when something is running to keep it light
+      if(tasks.some(t=>t.isRunning)){
+        if(state.active) updateEditorTime();
+        if(state.view!=='calendar') render(); // calendar has fewer ticking labels
+        else renderCalendar();
+      }
+    }, 1000);
+
+    // ----------------- Helpers -----------------
+    function esc(s){ return String(s||'').replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+
+    
+    // ----------------- Greeting -----------------
+    function updateGreeting() {
+      const hour = new Date().getHours();
+      let greeting;
+      if (hour < 12) greeting = "Good morning";
+      else if (hour < 18) greeting = "Good afternoon";
+      else greeting = "Good evening";
+      var gEl = document.getElementById("greeting"); if(gEl){ gEl.textContent = greeting + ", Arunava."; }
+    }
+    updateGreeting();
+
+    
+    // ----------------- Quotes -----------------
+    const quotes = [
+      "Small steps every day lead to big results.",
+      "Stay consistent, success will follow.",
+      "Focus on progress, not perfection.",
+      "Discipline beats motivation.",
+      "Believe in yourself and keep going!",
+      "Every day is a chance to get better."
+    ];
+
+    function updateQuote(){
+      const q = quotes[Math.floor(Math.random() * quotes.length)];
+      document.getElementById("quote").textContent = q;
+    }
+
+    updateQuote();
+    setInterval(updateQuote, 5 * 60 * 1000); // update every 5 minutes
+
+    // initial render
+    init();
+  </script>
+</body>
+</html>
