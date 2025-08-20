@@ -1,17 +1,29 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Momentum - focus, then flow</title>
-  <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Momentum - focus, then flow</title>
+<style>
     :root{
       --bg:#fafafa; --panel:#ffffff; --text:#111827; --muted:#6b7280; --border:#e5e7eb;
       --chip:#f3f4f6; --ring:#d1d5db; --accent:#111827; --rose:#fef2f2; --rose-border:#fecaca; --rose-text:#b91c1c;
     }
     *{box-sizing:border-box}
     body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,"Noto Sans","Apple Color Emoji","Segoe UI Emoji";background:var(--bg);color:var(--text)}
-    .container{max-width:1100px;margin:0 auto;padding:16px}
+    .container {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+@media (min-width: 1200px) {
+  .container {
+    max-width: 1400px;
+    padding: 0 48px;
+  }
+}
     .topbar{display:flex;gap:8px;align-items:center;margin-bottom:16px}
     .topbar .logo{width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--border);border-radius:8px;background:#fff}
     .spacer{flex:1}
@@ -37,6 +49,95 @@
     .panel{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:12px}
 
     /* Kanban */
+/* Collapsible Backlog: wrapper + stub */
+/* Slim vertical rail when Backlog is collapsed */
+.collapsed-rail{
+  width: 44px;
+  min-width: 44px;
+  background: var(--panel);
+  border:1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 4px;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+.collapsed-rail .rail-btn{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  gap: 4px;
+  width:100%;
+  background:transparent;
+  border:0;
+  cursor:pointer;
+  color: var(--text);
+  padding: 4px 0;
+ padding-top: 4px;  }
+.collapsed-rail .rail-chevron{
+  font-size:18px;
+  color: var(--muted);
+  transform: rotate(0deg);
+}
+/* Make only the label vertical. Keep count horizontal by counter-rotating. */
+.collapsed-rail .rail-label{
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text);
+ margin-top: 2px; }
+.collapsed-rail .rail-count{
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--chip);
+  border: 1px solid var(--border);
+  color: var(--text);
+  /* cancel parent rotation so it reads normally */
+ margin-top: 4px; }
+
+.kanban-wrap{ display:flex; gap:16px; align-items:stretch; }
+.kanban-wrap .kanban { flex: 1; }
+.collapsed-stub{
+  width: 200px;
+  min-width: 200px;
+  background: var(--panel);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+  color: var(--muted);
+}
+.collapsed-stub .head{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+  color: var(--muted);
+}
+.collapsed-stub .expand-btn{
+  border:0; background:transparent; color:var(--text);
+  font-size:12px; font-weight:600; cursor:pointer; border-radius:8px; padding:4px 8px;
+}
+.collapsed-stub .expand-btn:hover{ background: var(--chip); }
+
+/* Collapsible columns */
+.col.collapsed { background: var(--panel); }
+.col.collapsed .cards{ display:none !important; }
+.col.collapsed [data-add]{ display:none !important; }
+.col .collapse-btn{
+  display:inline-flex; align-items:center; gap:6px;
+  border:0; background:transparent; color:var(--muted); cursor:pointer;
+  font-size:12px; font-weight:600; padding:4px 6px; border-radius:8px;
+}
+.col .collapse-btn:hover{ background: var(--chip); color: var(--text); }
+.col .chev{ transition: transform .2s ease; display:inline-block; font-size:18px; }
+.col.collapsed .chev{ transform: rotate(-90deg); }
+
     .kanban{display:grid;grid-template-columns:repeat(1,minmax(0,1fr));gap:16px}
     @media (min-width:768px){.kanban{grid-template-columns:repeat(2,1fr)}}
     @media (min-width:1024px){.kanban{grid-template-columns:repeat(4,1fr)}}
@@ -492,108 +593,135 @@ thead{ background: var(--chip) !important; color: var(--muted) !important; }
 }
 .dialog.scrolled .dialog-footer::before { opacity: 1; }
 
+
+
+body { padding-top: 16px; }
+
+/* Auto-fit columns so grid fills available width */
+
+
+/* --- Normalize column header alignment --- */
+.col-head{ display:flex; align-items:center; justify-content:space-between; }
+.col-title{ display:flex; align-items:center; gap:8px; line-height:1; }
+/* Icon-only collapse button sizing (keeps text baseline aligned) */
+.col .collapse-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:18px; height:18px; padding:0; margin:0;
+  border:0; background:transparent; vertical-align:middle;
+}
+.col .chev{ font-size:12px; line-height:1; }
+
 </style>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+<link href="data:image/svg+xml,&lt;svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22&gt;&lt;text y=%22.9em%22 font-size=%2290%22&gt;⚡&lt;/text&gt;&lt;/svg&gt;" rel="icon"/>
 </head>
 <body>
-  <div class="container">
-    <!-- Topbar -->
-    <div class="topbar">
-      <div class="logo"><span class="wave">👋</span></div>
-      <div class="greeting-wrap" style="display:flex;flex-direction:column;gap:2px;">
-        <div id="greeting" style="font-weight:600"></div>
-        <div id="quote" class="muted" style="font-size:12px"></div>
-      </div>
-      <div class="spacer"></div>
-      <input id="search" class="input" placeholder="Search  ( / )" />
-      <button id="exportBtn" class="btn">Export</button>
-      <label class="btn" style="cursor:pointer">Import <input id="importInput" type="file" accept="application/json" hidden></label>
-      <label class="theme-switch" title="Toggle dark/light">  <input type="checkbox" id="themeToggleSwitch">  <span class="slider">    <span class="icon sun">☀️</span>    <span class="icon moon">🌙</span>  </span></label>
-      <button id="newBtn" class="btn primary">+ New Task</button>
-    </div>
+<div class="container">
+<!-- Topbar -->
+<div class="topbar">
+<div class="logo"><span class="wave">👋</span></div>
+<div class="greeting-wrap" style="display:flex;flex-direction:column;gap:2px;">
+<div id="greeting" style="font-weight:600"></div>
+<div class="muted" id="quote" style="font-size:12px"></div>
+</div>
+<div class="spacer"></div>
+<input class="input" id="search" placeholder="Search  ( / )"/>
+<button class="btn" id="exportBtn">Export</button>
+<label class="btn" style="cursor:pointer">Import <input accept="application/json" hidden="" id="importInput" type="file"/></label>
+<label class="theme-switch" title="Toggle dark/light"> <input id="themeToggleSwitch" type="checkbox"/> <span class="slider"> <span class="icon sun">☀️</span> <span class="icon moon">🌙</span> </span></label>
+<button class="btn primary" id="newBtn">+ New Task</button>
+</div>
+<!-- View switcher -->
+<div class="seg">
+<button class="active" data-view="kanban">Kanban</button>
+<button data-view="list">List</button>
+<button data-view="calendar">Calendar</button>
+</div>
+<!-- Content -->
+<div id="content"></div>
+<div class="muted" style="text-align:center;margin-top:16px;font-size:12px">Your work is going to fill a large part of your life—make it count.</div>
+</div>
+<!-- Modal Editor -->
+<div aria-hidden="true" class="modal" id="modal">
+<div class="backdrop" data-close=""></div>
+<div class="dialog">
+<div class="dialog-head">
+<div style="font-weight:600">Edit task</div>
+<button class="btn" data-close="">Close</button>
+</div>
+<div class="dialog-body">
+<div class="dialog-form-grid">
+<div>
+<label class="muted" style="font-size:12px">Title</label>
+<input class="input" id="f-title">
+</input></div>
+<div>
+<label class="muted" style="font-size:12px">Description</label>
+<textarea class="input" id="f-desc" rows="6" style="resize:vertical"></textarea>
+</div>
+<div class="grid-3">
+<div>
+<label class="muted" style="font-size:12px">Status</label>
+<select class="input" id="f-status"></select>
+</div>
+<div>
+<label class="muted" style="font-size:12px">Priority</label>
+<select class="input" id="f-priority"></select>
+</div>
+<div>
+<label class="muted" style="font-size:12px">Due date</label>
+<input class="input" id="f-due" type="date">
+</input></div>
+</div>
+<div>
+<label class="muted" style="font-size:12px">Start date</label>
+<input class="input" id="f-start" type="date"/>
+</div>
+<div class="panel">
+<div style="font-size:12px;font-weight:600">Time</div>
+<div style="margin-top:6px">⏱ <span id="f-time">00:00:00</span></div>
+<div style="margin-top:8px;display:flex;gap:8px">
+<button class="btn" id="f-timer">Start</button>
+<button class="btn" id="f-reset">Reset</button>
+</div>
+<div style="margin-top:8px">
+<label class="muted" style="font-size:12px">Set Time (HH:MM:SS)</label>
+<div style="display:flex;gap:8px">
+<input class="input" id="f-time-input" placeholder="00:00:00"/>
+<button class="btn" id="f-settime">Apply</button>
+</div>
+</div>
+</div>
+<div>
+<label class="muted" style="font-size:12px">Tags (comma separated)</label>
+<input class="input" id="f-tags" placeholder="design, api"/>
+</div>
 
-    <!-- View switcher -->
-    <div class="seg">
-      <button data-view="kanban" class="active">Kanban</button>
-      <button data-view="list">List</button>
-      <button data-view="calendar">Calendar</button>
-    </div>
-
-    <!-- Content -->
-    <div id="content"></div>
-
-    <div class="muted" style="text-align:center;margin-top:16px;font-size:12px">Your work is going to fill a large part of your life—make it count.</div>
+<div class="grid-3">
+  <div>
+    <label class="muted" style="font-size:12px">Impact</label>
+    <input type="number" class="input" id="f-impact" placeholder="0" min="0" min="0" max="10" step="1"/>
   </div>
-
-  <!-- Modal Editor -->
-  <div id="modal" class="modal" aria-hidden="true">
-    <div class="backdrop" data-close></div>
-    <div class="dialog">
-      <div class="dialog-head">
-        <div style="font-weight:600">Edit task</div>
-        <button class="btn" data-close>Close</button>
-      </div>
-      <div class="dialog-body">
-        <div class="dialog-form-grid">
-          <div>
-            <label class="muted" style="font-size:12px">Title</label>
-            <input id="f-title" class="input" />
-          </div>
-          <div>
-            <label class="muted" style="font-size:12px">Description</label>
-            <textarea id="f-desc" class="input" rows="6" style="resize:vertical"></textarea>
-          </div>
-          <div class="grid-3">
-            <div>
-              <label class="muted" style="font-size:12px">Status</label>
-              <select id="f-status" class="input"></select>
-            </div>
-            <div>
-              <label class="muted" style="font-size:12px">Priority</label>
-              <select id="f-priority" class="input"></select>
-            </div>
-            <div>
-              <label class="muted" style="font-size:12px">Due date</label>
-              <input id="f-due" type="date" class="input" />
-            </div>
-          </div>
-          <div>
-            <label class="muted" style="font-size:12px">Start date</label>
-            <input id="f-start" type="date" class="input" />
-          </div>
-          <div class="panel">
-            <div style="font-size:12px;font-weight:600">Time</div>
-            <div style="margin-top:6px">⏱ <span id="f-time">00:00:00</span></div>
-            <div style="margin-top:8px;display:flex;gap:8px">
-              <button id="f-timer" class="btn">Start</button>
-              <button id="f-reset" class="btn">Reset</button>
-            </div>
-          <div style="margin-top:8px">
-            <label class="muted" style="font-size:12px">Set Time (HH:MM:SS)</label>
-            <div style="display:flex;gap:8px">
-              <input id="f-time-input" class="input" placeholder="00:00:00" />
-              <button id="f-settime" class="btn">Apply</button>
-            </div>
-          </div>
-          </div>
-          <div>
-            <label class="muted" style="font-size:12px">Tags (comma separated)</label>
-            <input id="f-tags" class="input" placeholder="design, api" />
-          </div>
-        </div>
-      </div>
-      <div class="dialog-footer">
-        <button class="btn" data-close>Cancel</button>
-        <button id="deleteBtn" class="btn danger">Delete</button>
-        <button id="saveBtn" class="btn" style="background:#111827;color:#fff;border-color:#111827">Save</button>
-      </div>
-    </div>
+  <div>
+    <label class="muted" style="font-size:12px">Effort</label>
+    <input type="number" class="input" id="f-effort" placeholder="0" min="0" min="0" max="10" step="1"/>
   </div>
-
-  
-    <!-- Supabase JS SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
+  <div>
+    <label class="muted" style="font-size:12px">Score</label>
+    <input type="number" class="input" id="f-score" placeholder="0" readonly readonly aria-readonly="true" style="pointer-events:none; user-select:none;" />
+  </div>
+</div>
+</div>
+</div>
+<div class="dialog-footer">
+<button class="btn" data-close="">Cancel</button>
+<button class="btn danger" id="deleteBtn">Delete</button>
+<button class="btn" id="saveBtn" style="background:#111827;color:#fff;border-color:#111827">Save</button>
+</div>
+</div>
+</div>
+<!-- Supabase JS SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
       // ==================== Supabase Backend ====================
       // 1) Create a free project at https://supabase.com
       // 2) In your project, copy:
@@ -626,6 +754,9 @@ thead{ background: var(--chip) !important; color: var(--muted) !important; }
           trackedSeconds: t.tracked_seconds || 0,
           isRunning: !!t.is_running,
           startedAt: t.started_at || null,
+          impact: (typeof t.impact === 'number') ? t.impact : (t.impact ? Number(t.impact) : 0),
+          effort: (typeof t.effort === 'number') ? t.effort : (t.effort ? Number(t.effort) : 0),
+          score:  (typeof t.score  === 'number') ? t.score  : (t.score  ? Number(t.score)  : 0),
         }));
       }
 
@@ -644,7 +775,9 @@ thead{ background: var(--chip) !important; color: var(--muted) !important; }
           is_running: !!task.isRunning,
           started_at: task.startedAt || null,
           created_at: task.createdAt || new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          impact: (typeof task.impact === 'number' ? task.impact : (task.impact ? Number(task.impact) : null)),
+          effort: (typeof task.effort === 'number' ? task.effort : (task.effort ? Number(task.effort) : null))
         };
         const { error } = await sb.from('tasks').upsert(row);
         if (error) console.warn('Supabase upsert error:', error);
@@ -655,7 +788,6 @@ thead{ background: var(--chip) !important; color: var(--muted) !important; }
         if (error) console.warn('Supabase delete error:', error);
       }
     </script>
-
 <script>
     // ----------------- Data & Utilities -----------------
     const STORAGE_KEY = 'taskmgr-html-notion-v1';
@@ -681,7 +813,7 @@ thead{ background: var(--chip) !important; color: var(--muted) !important; }
       render();
     }
 
-    let state = { view:'kanban', query:'', active:null, draggedId:null };
+    let state = { view:'kanban', query:'', active:null, draggedId:null, collapsedStatuses: {} };
 
     function uid(){ return 't_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); }
     function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
@@ -750,14 +882,35 @@ thead{ background: var(--chip) !important; color: var(--muted) !important; }
 
     function renderKanban(){
       const groups = byStatus(filtered());
-      $content.innerHTML = `<div class="kanban">${STATUSES.map(s=>`
-        <div class="col">
-          <div class="col-head"><div class="col-title">${s}</div><div class="col-count">${groups[s].length}</div></div>
-          <div class="cards" data-status="${s}"></div>
-          <button class="btn btn-ghost" data-add="${s}" style="width:100%;margin-top:8px">+ Add task</button>
-        </div>`).join('')}</div>`;
+      $content.innerHTML = (()=>{
+        const isBacklogCollapsed = !!state.collapsedStatuses['Backlog'];
+        const visible = STATUSES.filter(s => !(isBacklogCollapsed && s==='Backlog'));
+        const cols = visible.length || 1;
+        const gridHTML = `<div class="kanban" style="grid-template-columns:repeat(${cols}, minmax(320px, 1fr))">${visible.map(s=>`
+          <div class="col ${state.collapsedStatuses[s] ? 'collapsed' : ''}">
+            <div class="col-head">
+              <div class="col-title" style="display:flex;align-items:center;gap:8px;">
+                ${s==='Backlog' ? `<button class="collapse-btn" data-collapse="${s}" aria-label="Collapse Backlog"><span class="chev">▾</span></button>` : ''}
+                ${s==='Backlog' ? `<span class="title-toggle" data-collapse="${s}" role="button" tabindex="0">${s}</span>` : s}
+              </div>
+              <div class="col-count">${groups[s].length}</div>
+            </div>
+            <div class="cards" data-status="${s}"></div>
+            <button class="btn btn-ghost" data-add="${s}" style="width:100%;margin-top:8px">+ Add task</button>
+          </div>`).join('')}</div>`;
 
-      // paint cards
+        if (!isBacklogCollapsed) return gridHTML;
+
+        const stub = `<div class="collapsed-rail">
+            <button class="rail-btn" data-expand="Backlog">
+              <div class="rail-chevron">▸</div>
+              <div class="rail-label">Backlog</div>
+              <div class="rail-count">${groups['Backlog'].length}</div>
+            </button>
+          </div>`;
+        return `<div class='kanban-wrap'>${stub}${gridHTML}</div>`;
+      })();
+// paint cards
       const byId = Object.fromEntries(tasks.map(t=>[t.id,t]));
       document.querySelectorAll('.cards').forEach(col=>{
         const status = col.dataset.status;
@@ -773,7 +926,45 @@ thead{ background: var(--chip) !important; color: var(--muted) !important; }
         });
       });
 
+      // collapse buttons
+      document.querySelectorAll('[data-collapse]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const status = btn.getAttribute('data-collapse');
+          state.collapsedStatuses[status] = !state.collapsedStatuses[status];
+          render();
+        });
+      });
+
       // add buttons
+      // keyboard support for collapse toggle via Enter/Space
+      document.querySelectorAll('[data-collapse]').forEach(el=>{
+        el.addEventListener('keydown',(e)=>{
+          if(e.key === 'Enter' || e.key === ' '){
+            e.preventDefault();
+            el.click();
+          }
+        });
+      });
+
+      // expand (from stub)
+      document.querySelectorAll('[data-expand]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const status = btn.getAttribute('data-expand');
+          state.collapsedStatuses[status] = false;
+          render();
+        });
+      });
+
+      // add buttons
+      // keyboard support for collapse toggle via Enter/Space
+      document.querySelectorAll('[data-collapse]').forEach(el=>{
+        el.addEventListener('keydown',(e)=>{
+          if(e.key === 'Enter' || e.key === ' '){
+            e.preventDefault();
+            el.click();
+          }
+        });
+      });
       document.querySelectorAll('[data-add]').forEach(btn=> btn.addEventListener('click',()=>{
         const status = btn.getAttribute('data-add');
         const t = {id:uid(), title:'Untitled task', description:'', status, order: (tasks.filter(x=>x.status===status).length), dueDate:null, priority:'Medium', tags:[], createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), trackedSeconds:0, isRunning:false, startedAt:null};
@@ -805,6 +996,26 @@ thead{ background: var(--chip) !important; color: var(--muted) !important; }
             <button class="btn" data-timer>${t.isRunning?'Pause':'Start'}</button>
           </div>
         </div>`;
+      (function addScoreChip(){
+        try {
+          const meta = card.querySelector('.card-meta');
+          const hasScore = typeof t.score === 'number' && t.score > 0;
+          if (!meta || !hasScore) return;
+          const s = document.createElement('span');
+          s.className = 'chip';
+          const sc = t.score;
+          let color = '#9ca3af';
+          if (sc >= 8) color = '#16a34a';
+          else if (sc >= 5) color = '#f59e0b';
+          else if (sc > 0) color = '#ef4444';
+          s.style.fontWeight = '600';
+          // Enforce color over .chip { color: var(--text) !important }
+          s.style.setProperty('color', color, 'important');
+          s.textContent = 'Score: ' + sc.toFixed(2);
+          meta.appendChild(s);
+        } catch(e){}
+      })();
+
 
             card.querySelector('[data-timer]').addEventListener('click',()=> toggleTimer(t.id));
 
@@ -995,8 +1206,38 @@ function moveTask(id, targetStatus, targetIndex){
     const $fStart = document.getElementById('f-start');
     const $fTimeInput = document.getElementById('f-time-input');
     const $fSetTime = document.getElementById('f-settime');
+    const $fImpact = document.getElementById('f-impact');
+    const $fEffort = document.getElementById('f-effort');
+    const $fScore  = document.getElementById('f-score');
 
-    // fill status/priority options once
+
+    
+    function clamp01to10(inputEl){
+      if(!inputEl) return;
+      const v = parseFloat(inputEl.value);
+      if (isNaN(v)) { inputEl.value = ''; return; }
+      if (v < 0) inputEl.value = 0;
+      if (v > 10) inputEl.value = 10;
+    }
+    function applyScoreColorToEditor(){
+      if(!$fScore) return;
+      const val = parseFloat($fScore.value);
+      let color = ''; // inherit
+      if (!isNaN(val)) {
+        if (val >= 8) color = '#16a34a';
+        else if (val >= 5) color = '#f59e0b';
+        else if (val > 0) color = '#ef4444';
+      }
+      // Enforce over .input { color: var(--text) !important }
+      if (color) {
+        $fScore.style.setProperty('color', color, 'important');
+        $fScore.style.setProperty('font-weight', '600', 'important');
+      } else {
+        $fScore.style.removeProperty('color');
+        $fScore.style.removeProperty('font-weight');
+      }
+    }
+// fill status/priority options once
     function seedSelects(){
       $fStatus.innerHTML = STATUSES.map(s=>`<option>${s}</option>`).join('');
       $fPriority.innerHTML = PRIORITIES.map(s=>`<option>${s}</option>`).join('');
@@ -1020,7 +1261,13 @@ function moveTask(id, targetStatus, targetIndex){
       if ($fTimeInput) { $fTimeInput.value = fmtHMS(currentSeconds(t)); }
       $modal.classList.add('open');
       $modal.setAttribute('aria-hidden','false');
-    }
+      if ($fImpact) $fImpact.value = (typeof t.impact === 'number' ? t.impact : (t.impact || ''));
+      if ($fEffort) $fEffort.value = (typeof t.effort === 'number' ? t.effort : (t.effort || ''));
+      if ($fScore)  $fScore.value  = (typeof t.score === 'number' ? t.score.toFixed(2) : (t.score || ''));
+      recalcScore();
+    
+      clamp01to10($fImpact); clamp01to10($fEffort); recalcScore(); applyScoreColorToEditor();
+}
 
     function closeEditor(){ $modal.classList.remove('open'); $modal.setAttribute('aria-hidden','true'); state.active=null; document.body.classList.remove('modal-open'); }
 
@@ -1036,6 +1283,14 @@ function moveTask(id, targetStatus, targetIndex){
       t.startDate = ($fStart && $fStart.value) ? $fStart.value : null;
       t.tags = $fTags.value.split(',').map(s=>s.trim()).filter(Boolean);
       t.updatedAt = new Date().toISOString();
+      
+      // Save Impact/Effort and local score for immediate UI; Supabase will compute authoritative score.
+      if ($fImpact && $fEffort) {
+        clamp01to10($fImpact); clamp01to10($fEffort);
+      t.impact = parseFloat($fImpact.value) || 0;
+        t.effort = parseFloat($fEffort.value) || 0;
+        t.score  = t.effort > 0 ? (t.impact / t.effort) : 0;
+      }
       upsert(t); closeEditor(); render();
     });
 
@@ -1255,7 +1510,6 @@ function updateEditorTime(){ if(!state.active) return; const t = tasks.find(x=>x
 })();
 
   </script>
-
 <script>
 // Lightweight fullscreen confetti
 function launchConfetti(durationMs = 2200, particleCount = 220){
